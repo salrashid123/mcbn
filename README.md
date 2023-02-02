@@ -9,7 +9,8 @@ Suppose there are
 * three participants `Alice, Bob, Carol`
 * two application components:  `client` and `server`
 * the `client` can only connect to the `server` if all three participants agree to do so (or with a threshold of participants)
-* `Frank` operates a compute infrastructure where the `client` and `server` run
+* `Frank` operates a compute infrastructure where the `client` and `server` run.
+  * (or in different infrastructures (eg, `Frank` runs `client`; `Dave` runs `server` ))
 * each participant needs to provide their share of an encryption key which when combined will allow `client->server` connectivity
 * `Frank` cannot have  the ability to see any other participants partial keys or final derived key (neither can the participants see the others)
 * network traffic must be TLS encrypted (of course)
@@ -38,8 +39,9 @@ For  more information on confidential space, see
 
 * [Constructing Trusted Execution Environment (TEE) with GCP Confidential Space](https://github.com/salrashid123/confidential_space)
 
->> **NOTE** at the moment (`2/1/23`), `Confidential Space` does *not* allow inbound network connectivity so this is a hypothetical, academic construct. 
+> **NOTE** at the moment (`2/1/23`), `Confidential Space` does *not* allow inbound network connectivity so this is a hypothetical, academic construct. 
 
+Though we are using a hypothetical feature of GCP `Confidential Space`, this technique can be used extended to connect multiple cloud providers.  For example, the thereshold of keys can be decoded in a client running in [AWS Nitro Enclave](https://docs.aws.amazon.com/kms/latest/developerguide/services-nitro-enclaves.html) or [Azure SGX](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-computing-enclaves) while the server runs on GCP.
 
 ![image/mcbn.png](images/mcbn.png)
 
@@ -52,9 +54,10 @@ The following describes how to generate a client/server using `TLS-PSK` and `DTL
 
 It does **NOT** actually deploy these services to `Confidential Space` since theres no point (i.,e no inbound connectivity).  I'll update this sample with full end-to-end when it does.
 
-In both the TLS-PSK and DTLS examples below, we're going to "derive" the new key using a `sha256(alice+bob+carl)` (yes, i know...its suspect but its a demo)
+In both the TLS-PSK and DTLS examples below, we're going to "derive" the new key using a `sha256(alice+bob+carl)` (yes, i know...its suspect but its a demo).
 
 In our case,its just
+
 ```javascript
 const alice = '2c6f63f8c0f53a565db041b91c0a95add8913fc102670589db3982228dbfed90';
 const bob = 'b15244faf36e5e4b178d3891701d245f2e45e881d913b6c35c0ea0ac14224cc2';               
@@ -64,7 +67,17 @@ const key = crypto.createHash('sha256').update(alice+bob+carol).digest('hex');
 //console.log(key);
 // which is 
 key = '6d1bbd1e6235c9d9ec8cdbdf9b32d4d08304a7f305f7c6c67775130d914f4dc4';
+
+// alternatively, 
+// successively chain keys with HMAC_SHA256(data,passphrase)
+// key = HMAC_SHA256(HMAC_SHA256(alice,bob),carol)
+
+// const k1 = crypto.createHmac('sha256', bob).update(alice).digest("hex");
+// const key = crypto.createHmac('sha256', carol).update(k1).digest("hex");
+// console.log(key);  // gives 2b6c5604e7b5a3a9832ec2590fd058d610807cee2f3e87bb08dafbb57475d976
 ```
+
+Using hmac or sha256 in these formats requires the known ordering of keys (i.e  alice is key1, bob is key2, carols is key3)...and probably the assumption participants are not sending in degenerate keys like `000000...`
 
 Other realistic possibilities to derive can be some sort of KDF function or using `Threshold Cryptography` with  the final recovered [private key](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13#file-main-go-L158).  (I haven't though much about the best way of how to derive a new key)
 
@@ -111,7 +124,8 @@ To generate the image with cloud build will result in the predictable hash of:
 This would be the image hash that is bound to `Confidential Space` server VM
 
 ```bash
-cd psk/nodejs/server/the env vars specified
+cd psk/nodejs/server/
+
 gcloud builds submit .
 
 export PROJECT_ID=$(gcloud config list --format="value(core.project)")
@@ -350,8 +364,8 @@ As with any client/server system, the question of service discovery is important
 This tutorial does not specify how the client and server will connect together but will outline several options:
 
 * `xDS` using [Google Traffic Director](https://cloud.google.com/traffic-director/docs/proxyless-overview)
-  [Proxyless gRPC with Google Traffic Director](https://github.com/salrashid123/grpc_xds_traffic_director) provides a generic example not specific to this tutorial
+   - [Proxyless gRPC with Google Traffic Director](https://github.com/salrashid123/grpc_xds_traffic_director) provides a generic example not specific to this tutorial
 * [Istio Service Mesh](https://istio.io/latest/about/service-mesh/)
-  (have not verified but using `PSK` or `DTLS` should be possible)
+   - (have not verified but using `PSK` or `DTLS` should be possible)
 * [Hashicorp Consul](https://www.consul.io/)
-  You can configure consul using its [jwt auth](https://developer.hashicorp.com/consul/docs/security/acl/auth-methods/jwt) mechanism similar to Hashicorp Vault as shown [here](https://github.com/salrashid123/confidential_space#using-hashicorp-vault) 
+   - You can configure consul using its [jwt auth](https://developer.hashicorp.com/consul/docs/security/acl/auth-methods/jwt) mechanism similar to Hashicorp Vault as shown [here](https://github.com/salrashid123/confidential_space#using-hashicorp-vault). and [Hashicorp Consul JWT Auth](https://github.com/salrashid123/consul_jwt_auth)
