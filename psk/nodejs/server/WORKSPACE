@@ -1,0 +1,55 @@
+workspace(name = "psk")
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# node
+http_archive(
+    name = "build_bazel_rules_nodejs",
+    sha256 = "c2ad51299792d5af3b258f1dd71b3b57eff9424c2e1797d9c1d65717d95da03a",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/5.7.3/rules_nodejs-5.7.3.tar.gz"],
+)
+
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+build_bazel_rules_nodejs_dependencies()
+
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
+node_repositories(
+    node_version = "16.18.1",   
+)
+
+load("@build_bazel_rules_nodejs//:index.bzl", "npm_install")
+npm_install(
+    name = "npm",
+    package_json = "//:package.json",
+    package_lock_json = "//:package-lock.json",
+)
+
+
+# Docker
+http_archive(
+    name = "io_bazel_rules_docker",
+    sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
+    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
+)
+
+load("@io_bazel_rules_docker//repositories:repositories.bzl", container_repositories = "repositories",)
+container_repositories()
+
+load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+container_deps()
+
+# see https://github.com/bazelbuild/rules_docker#nodejs_image
+# https://console.cloud.google.com/gcr/images/google-appengine/global/debian9@sha256:a0a11cdf077e9557e551b0f99db60f2d0c4523641d604816aebcb625500858ae/details
+load("@io_bazel_rules_docker//container:pull.bzl", "container_pull")
+container_pull(
+    name = "google-appengine-debian9",
+    digest = "sha256:a0a11cdf077e9557e551b0f99db60f2d0c4523641d604816aebcb625500858ae",
+    registry = "gcr.io",
+    repository = "google-appengine/debian9",
+)
+
+load("@io_bazel_rules_docker//nodejs:image.bzl", nodejs_image_repos = "repositories")
+nodejs_image_repos()
+
+

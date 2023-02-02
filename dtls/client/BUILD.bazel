@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+
+go_binary(
+    name = "client",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+    goos = "linux", 
+    goarch = "amd64",     
+)
+
+container_image(
+    name = "dtls_client_image",
+    base = "@distroless_base//image",
+    entrypoint = ["/client"],
+    files = [":client"],
+    repository = "us-central1-docker.pkg.dev/builder-project/repo1/dtls_client", 
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["client.go"],
+    importpath = "main",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_pion_dtls_v2//:go_default_library",             
+    ],
+)
