@@ -11,7 +11,7 @@ Suppose there are
 * the `client` can only connect to the `server` if all three participants agree to do so (or with a threshold of participants)
 * `Frank` operates a compute infrastructure where the `client` and `server` run
 * each participant needs to provide their share of an encryption key which when combined will allow `client->server` connectivity
-* `Frank` cannot have  the ability to see any other participants partial keys (neither can the participants see the others)
+* `Frank` cannot have  the ability to see any other participants partial keys or final derived key (neither can the participants see the others)
 * network traffic must be TLS encrypted (of course)
 
 There _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
