@@ -17,7 +17,9 @@ Suppose there are
 
 There _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
 
-In this procedure outlined below, no trusted third party is required.  Instead, the TLS connection itself will use the same derived shared key using data from  the participants partial keys.
+In this procedure outlined below, no trusted third party is required.  Well...`GCP Confidential Space` as a product is trusted in the sense the attestation it provides is legit (i.,e the product is doing what it says its supposed to do) and in this sense, its not the traditional 3rd party in context here)
+
+Instead, the TLS connection itself will use the same derived shared key using data from  the participants partial keys.
 
 Each participant will release their share of the secret to both the client and server only after ensuring the specific VM that is requesting the share is running in [Google Confidential Space](https://cloud.google.com/blog/products/identity-security/announcing-confidential-space) and the codebase it is running is going to just use the combined keyshares to establish a TLS connection to the server.  The server will use the same set of keys to accept client connections.
 
