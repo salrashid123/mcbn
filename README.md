@@ -1,6 +1,6 @@
 # Multiparty Consent Based Networks (MCBN)
 
-Multiparty consent based networking (`mcbn`)is a mechanism with which a threshold of participants are required to establish distributed service->service connectivity using properties of `TLS` itself.
+Multiparty consent based networking (`mcbn`)is a mechanism with which a threshold of participants are required to establish distributed `client->server` connectivity using properties of `TLS` itself.
 
 Its easier to describe in prose:
 
@@ -11,12 +11,12 @@ Suppose there are
 * the `client` can only connect to the `server` if all three participants agree to do so (or with a threshold of participants)
 * `Frank` operates a compute infrastructure where the `client` and `server` run
 * each participant needs to provide their share of an encryption key which when combined will allow `client->server` connectivity
-* `Frank` cannot have have the ability to see any other participants partial keys (neither can the participants see the others)
+* `Frank` cannot have  the ability to see any other participants partial keys (neither can the participants see the others)
 * network traffic must be TLS encrypted (of course)
 
 There _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
 
-In this procedure outlined below, no trusted third party is required.  Instead, the TLS connection itself will use the same derived shared key from all the participants.
+In this procedure outlined below, no trusted third party is required.  Instead, the TLS connection itself will use the same derived shared key using data from  the participants partial keys.
 
 Each participant will release their share of the secret to both the client and server only after ensuring the specific VM that is requesting the share is running in [Google Confidential Space](https://cloud.google.com/blog/products/identity-security/announcing-confidential-space) and the codebase it is running is going to just use the combined keyshares to establish a TLS connection to the server.  The server will use the same set of keys to accept client connections.
 
@@ -66,13 +66,13 @@ const key = crypto.createHash('sha256').update(alice+bob+carol).digest('hex');
 key = '6d1bbd1e6235c9d9ec8cdbdf9b32d4d08304a7f305f7c6c67775130d914f4dc4';
 ```
 
-Other realistic possibilities to derive can be some sort of KDF function or using `Threshold Cryptography` with  the final recovered [private key](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13#file-main-go-L158).  Don't use the  I haven't though much about the best way of how to derive a new key)
+Other realistic possibilities to derive can be some sort of KDF function or using `Threshold Cryptography` with  the final recovered [private key](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13#file-main-go-L158).  (I haven't though much about the best way of how to derive a new key)
 
-Anyway, we'll just go with the key above.
+Anyway, we'll just go with the scheme above.
 
 ---
 
-## Preshard Key TLS (PSK)
+## Pre-shared Key TLS (PSK)
 
 This sample uses `nodeJS` stack ask there are only a few languages that I've come across that do support PSK's:
 
