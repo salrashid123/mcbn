@@ -90,6 +90,8 @@ Using hmac or sha256 in these formats requires the known ordering of keys (i.e  
 
 Other realistic possibilities to derive can be some sort of KDF function or using `Threshold Cryptography` with  the final recovered [private key](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13#file-main-go-L158).  (I haven't though much about the best way of how to derive a new key)
 
+For alternatives see comments on [Proper way to combine multiple secrets into one HMAC key](https://security.stackexchange.com/questions/183344/proper-way-to-combine-multiple-secrets-into-one-hmac-key)
+
 Anyway, we'll just go with the scheme above.
 
 ---
@@ -410,6 +412,7 @@ For more info, see:
 * [Golang Deterministic crypto/rand Reader](https://gist.github.com/jpillora/5a0471b246d541b984ab)
 * [Golang: A tool to generate a deterministic RSA keypair from a passphrase.](https://github.com/joekir/deterministics)
 * [Python: deterministic-rsa-keygen 0.0.1](https://pypi.org/project/deterministic-rsa-keygen/)
+* [Stackexchange: Proper way to combine multiple secrets into one HMAC key](https://security.stackexchange.com/questions/183344/proper-way-to-combine-multiple-secrets-into-one-hmac-key)
 
 
 This repo contains a small demo about this feature that i extended for mTLS:
