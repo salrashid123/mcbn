@@ -15,6 +15,8 @@ Suppose there are
 * `Frank` cannot have  the ability to see any other participants partial keys or final derived key (neither can the participants see the others)
 * network traffic must be TLS encrypted (of course)
 
+>>> **note**  all this is really experimental and just stuff i thought of; use caution and *never* in production.
+
 There _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
 
 In this procedure outlined below, no trusted third party is required.  Well...`GCP Confidential Space` as a product is trusted in the sense the attestation it provides is legit (i.,e the product is doing what it says its supposed to do) and in this sense, its not the traditional 3rd party in context here)
@@ -23,23 +25,30 @@ Each participant will release their share of the secret to both the client and s
 
 Basically, the network connection itself is predicated on having access to all the keys for each participant in an environment where the codebase is trusted and `Frank` cannot access any data running on the VM.
 
-All of this is achieved using a fairly uncommon mechanism built into `TLS`:
+All of this is achieved using a fairly uncommon mechanism built into `TLS` or the way private keys are generated
 
-For TCP (`TLS-PSK`):
+For TCP - `TLS-PSK`:
 * [Pre-Shared Key Ciphersuites for Transport Layer Security (TLS)](https://www.rfc-editor.org/rfc/rfc4279)
 
-For UDP - `DTLS with PSK`
+For UDP - `DTLS with PSK`:
 * [Datagram Transport Layer Security Version 1.2](https://www.rfc-editor.org/rfc/rfc6347)
 
-Basically a common `PSK` will be constructed within `Confidential Space` VM  using all participants keys (or with modification using `t-of-n` [Threshold Cryptography](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13)).   The partial keys will be released to the VM only after _it proves_ to each participant it is running trusted code and the operator (`Frank`), cannot access the system.
+  Basically a common `PSK` will be constructed within `Confidential Space` VM  using all participants keys (or with modification using `t-of-n` [Threshold Cryptography](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13)).   The partial keys will be released to the VM only after _it proves_ to each participant it is running trusted code and the operator (`Frank`), cannot access the system.
 
-The combined keys will create the same PSK on both the client and server and and then facilitate network connectivity. 
+  The combined keys will create the same PSK on both the client and server and and then facilitate network connectivity. 
+
+Again for TCP - `Shared RSA key derivation using constructed seeds`:
+
+*  The final way is to derive the same RSA private key on both ends by "seeding" the shared key into the RSA key generator.  
+   This allows each side to use that common RSA key to create a CSR and then have a local CA issue a TLS x509 certificate.
+   Each end trusts the remote TLS cert and issuer but critical bit that is used to grant access is the _comparing the remote peers TLS certificates public key against the local key_.   
+   Since each end uses the same RSA key, this comparison can ensure both ends recieved the same set of partial keys.
 
 For  more information on confidential space, see
 
 * [Constructing Trusted Execution Environment (TEE) with GCP Confidential Space](https://github.com/salrashid123/confidential_space)
 
-> **NOTE** at the moment (`2/1/23`), `Confidential Space` does *not* allow inbound network connectivity so this is a hypothetical, academic construct. 
+> at the moment (`2/1/23`), `Confidential Space` does *not* allow inbound network connectivity so this is a hypothetical, academic construct. 
 
 Though we are using a hypothetical feature of GCP `Confidential Space`, this technique can be used extended to connect multiple cloud providers.  For example, the thereshold of keys can be decoded in a client running in [AWS Nitro Enclave](https://docs.aws.amazon.com/kms/latest/developerguide/services-nitro-enclaves.html) or [Azure SGX](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-computing-enclaves) while the server runs on GCP.
 
@@ -356,6 +365,208 @@ go run client/client.go
 # docker run --net=host us-central1-docker.pkg.dev/builder-project/repo1/dtls_client/client:dtls_client_image
 ```
 
+## Deterministic RSA Key
+
+This technique basically uses both alice and bob's key together to derive the 'seed' value to use during RSA key generation.
+
+If the same partial keys are used with a hash or KDF function that results in the same seed value, that seed value can be the "randomness" that is fed into [rsa.GenerateKey(random io.Reader, bits int) (*PrivateKey, error)](https://pkg.go.dev/crypto/rsa#GenerateKey).
+
+Basically, you're feeding the function above a _deterministic random key_ (right...)
+
+Its best demonstrated with the following using `certtool`:
+
+```bash
+# start with a pair of secret keys
+export alice=b06394e28c33be5a8699759023972e9294d51b5007b3b0a51a41e9f58d406f8d
+
+export bob=2d362ce19a804d12b85644abf3a0e9bbfbb0e0ba3c5dd7cc4b8e335bc5154496
+
+# generate a new one...i'm using something suspect here like just hashing the combined key...there's certainly better ways like KDF or something
+
+export S1=`echo -n "$alice$bob" | sha256sum | cut -d ' ' -f 1`
+echo $S1
+
+# you should see   cb488e9105faa7e26cf30dcc6042fea07fd71c38953973c356d8ecf80421880e
+
+# now use that key as the 'seed' to generate a keypari and extract the RSA public keys
+certtool --generate-privkey --outfile priv1.pem --key-type=rsa --sec-param=high --seed=$S1
+openssl rsa -in priv1.pem -pubout -out pub1.pem
+
+# do it again
+certtool --generate-privkey  --outfile priv2.pem --key-type=rsa --sec-param=high --seed=$S1
+openssl rsa -in priv1.pem -pubout -out pub2.pem
+
+## compare both keys being the same...
+diff priv1.pem priv2.pem
+```
+
+
+For more info, see:
+
+* [Generating a public/private key pair using an initial key](https://stackoverflow.com/questions/18264314/generating-a-public-private-key-pair-using-an-initial-key)
+* [Making OpenSSL generate deterministic key](https://stackoverflow.com/questions/22759465/making-openssl-generate-deterministic-key)
+* [Using Go deterministically generate RSA Private Key with custom io.Reader](https://stackoverflow.com/questions/74869997/using-go-deterministicly-generate-rsa-private-key-with-custom-io-reader)
+* [How can one securely generate an asymmetric key pair from a short passphrase?](https://crypto.stackexchange.com/questions/1662/how-can-one-securely-generate-an-asymmetric-key-pair-from-a-short-passphrase/1665#1665)
+* [Golang Deterministic crypto/rand Reader](https://gist.github.com/jpillora/5a0471b246d541b984ab)
+* [Golang: A tool to generate a deterministic RSA keypair from a passphrase.](https://github.com/joekir/deterministics)
+* [Python: deterministic-rsa-keygen 0.0.1](https://pypi.org/project/deterministic-rsa-keygen/)
+
+
+This repo contains a small demo about this feature that i extended for mTLS:
+
+1. client and server recieve alice and bob's secret keys
+2. client and server derive the same RSA key using a hash of partial keys
+3. client and server uses the RSA key to create a CSR
+4. client and server uses the _same_ local CA to issue an x509 certificate for the CSR
+5. server starts mTLS http server  where it accepts certificates issued by the local CA.
+
+  The server certificate is the one created in step 4
+6. client contacts the server using the local certificate from step 4
+
+  Client accepts the server certificate if it was issued by the local CA
+7. During connection establishment, both the client and server checks if the remote peer's leaf RSA public key is the same
+
+
+You'll notice the code contains a local CA keypair that is built into the sample...the CA only plays a bit part in this picture..
+
+the 'thing' that allows connection isn't the CA or the certificate it signed (that bit is just for ease of use for mTLS)...the critical bit occurs when each end compares the RSA peer certificates are the same or not.
+
+
+The following shows a simple client-server where each participants keys are set
+
+The first step shows the derived key, then the RSA key and the RSA key's hash value.  This should be the same on both ends.
+
+Once the client makes mTLS contact, it will accept the mTLS connection if it they peer was signed by a common 
+
+```bash
+## server
+$ go run server/server.go  \
+  --alice=b06394e28c33be5a8699759023972e9294d51b5007b3b0a51a41e9f58d406f8d \
+  --bob=2d362ce19a804d12b85644abf3a0e9bbfbb0e0ba3c5dd7cc4b8e335bc5154496
+
+derived combined key y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
+-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEA14gGro/kwHL7tqLhRvUbsxiV8+hQh/nTwbXvwOrO82ffMgBtfw5r
+8AB0hvsSVILcIQ8/6QvXplL4hfjhbg5L3HQ1wiSG8ha94Jayxe3bHpoQ7O0ENr/w
+DioEePFyCFXdtq/JdpA2sqTpd9cG9B8HHw/C4tR40/PoJhyS/rUZjKoNuV6zOIUo
+LUnIsNeKCFcqGJGhfsL8q4D0ntTvFdXWAIf/d1gYBj8NOFw+zj2KBYU1l/zRsBWU
+JrvpMesBMFL/+8zOQkdR1T5fBOEU9n5eiIGWx9lP0J7UBRliSYKSpThB/FrmyMz6
+vaXB5aj2LigGqvQzj2E2OM0eWzG76W9TFQIDAQAB
+-----END RSA PUBLIC KEY-----
+
+derived common certificate hash 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+Creating CSR
+Creating Cert
+Issued x509 with serial number 144395073894613789882005151401037591406
+Starting Server..
+derived and remote certificate hash match 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+
+
+## client
+$ go run client/client.go \
+  --alice=b06394e28c33be5a8699759023972e9294d51b5007b3b0a51a41e9f58d406f8d \
+  --bob=2d362ce19a804d12b85644abf3a0e9bbfbb0e0ba3c5dd7cc4b8e335bc5154496
+
+derived combined key y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
+-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEA14gGro/kwHL7tqLhRvUbsxiV8+hQh/nTwbXvwOrO82ffMgBtfw5r
+8AB0hvsSVILcIQ8/6QvXplL4hfjhbg5L3HQ1wiSG8ha94Jayxe3bHpoQ7O0ENr/w
+DioEePFyCFXdtq/JdpA2sqTpd9cG9B8HHw/C4tR40/PoJhyS/rUZjKoNuV6zOIUo
+LUnIsNeKCFcqGJGhfsL8q4D0ntTvFdXWAIf/d1gYBj8NOFw+zj2KBYU1l/zRsBWU
+JrvpMesBMFL/+8zOQkdR1T5fBOEU9n5eiIGWx9lP0J7UBRliSYKSpThB/FrmyMz6
+vaXB5aj2LigGqvQzj2E2OM0eWzG76W9TFQIDAQAB
+-----END RSA PUBLIC KEY-----
+
+derived certificate hash 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+Creating CSR
+Creating Cert
+Issued x509 with serial number 308506128143660537133484591602686761852
+local and remote certificate hash match 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+Connected to IP: 127.0.0.1
+200 OK
+```
+
+
+The the client and server certificates itself will have a unique serial numbers and issue times since the certifiates are generated at each run but the RSA key underlying it will be the same
+
+The server i used in the example above had:
+
+```bash
+$ openssl x509 -in s.crt  -noout -text
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            6c:a1:7a:cb:3b:3a:54:87:cb:65:a9:e8:d3:98:f3:6e
+        Signature Algorithm: rsassaPss        
+        Hash Algorithm: sha256
+        Mask Algorithm: mgf1 with sha256
+         Salt Length: 0x20
+        Trailer Field: 0x01 (default)
+        Issuer: C = US, O = Operator, OU = Enterprise, CN = Enterprise Root CA
+        Validity
+            Not Before: May  4 14:48:31 2023 GMT
+            Not After : May  3 14:48:31 2024 GMT
+        Subject: C = US, ST = California, L = Mountain View, O = Acme Co, OU = Enterprise, CN = server.domain.com
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (2048 bit)
+                Modulus:
+                    00:d7:88:06:ae:8f:e4:c0:72:fb:b6:a2:e1:46:f5:
+                    1b:b3:18:95:f3:e8:50:87:f9:d3:c1:b5:ef:c0:ea:
+                    ce:f3:67:df:32:00:6d:7f:0e:6b:f0:00:74:86:fb:
+                    12:54:82:dc:21:0f:3f:e9:0b:d7:a6:52:f8:85:f8:
+                    e1:6e:0e:4b:dc:74:35:c2:24:86:f2:16:bd:e0:96:
+                    b2:c5:ed:db:1e:9a:10:ec:ed:04:36:bf:f0:0e:2a:
+                    04:78:f1:72:08:55:dd:b6:af:c9:76:90:36:b2:a4:
+                    e9:77:d7:06:f4:1f:07:1f:0f:c2:e2:d4:78:d3:f3:
+                    e8:26:1c:92:fe:b5:19:8c:aa:0d:b9:5e:b3:38:85:
+                    28:2d:49:c8:b0:d7:8a:08:57:2a:18:91:a1:7e:c2:
+                    fc:ab:80:f4:9e:d4:ef:15:d5:d6:00:87:ff:77:58:
+                    18:06:3f:0d:38:5c:3e:ce:3d:8a:05:85:35:97:fc:
+                    d1:b0:15:94:26:bb:e9:31:eb:01:30:52:ff:fb:cc:
+                    ce:42:47:51:d5:3e:5f:04:e1:14:f6:7e:5e:88:81:
+                    96:c7:d9:4f:d0:9e:d4:05:19:62:49:82:92:a5:38:
+                    41:fc:5a:e6:c8:cc:fa:bd:a5:c1:e5:a8:f6:2e:28:
+                    06:aa:f4:33:8f:61:36:38:cd:1e:5b:31:bb:e9:6f:
+                    53:15
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Key Usage: critical
+                Digital Signature
+            X509v3 Extended Key Usage: 
+                TLS Web Server Authentication
+            X509v3 Basic Constraints: critical
+                CA:FALSE
+            X509v3 Subject Key Identifier: 
+                48:98:22:67:C4:45:D7:BC:16:B9:65:28:1B:1B:21:A1:BD:6F:B0:83
+            X509v3 Authority Key Identifier: 
+                58:88:29:FD:AA:3A:F0:9F:51:CA:FD:F1:6B:FC:D7:F0:8E:67:CF:80
+            X509v3 Subject Alternative Name: 
+                DNS:server.domain.com
+    Signature Algorithm: rsassaPss
+    Signature Value:        
+        Hash Algorithm: sha256
+        Mask Algorithm: mgf1 with sha256
+         Salt Length: 0x20
+        Trailer Field: 0x01 (default)
+        a5:cf:30:d2:9d:0d:c5:c0:f0:47:c3:ab:03:aa:b4:8e:4d:94:
+        6f:88:74:a5:24:d1:fa:ce:f6:35:a0:fc:e9:1d:3f:7f:80:c9:
+        a5:40:e7:99:9c:45:ce:9b:80:00:b3:55:7a:d5:b7:f1:6e:25:
+        aa:7b:90:d1:cc:55:2f:f7:1e:cf:7a:ac:90:a4:90:78:fc:26:
+        55:60:63:04:ac:4a:0c:67:ef:f6:77:87:aa:6d:5e:6c:58:68:
+        a0:83:04:7d:4b:a0:23:f7:bf:ec:28:27:14:e2:a9:8a:d6:be:
+        a6:f1:4b:d0:a8:c3:91:b7:40:c2:e9:b8:dd:83:e2:08:0a:eb:
+        ee:5e:be:3b:5f:af:33:44:a4:1e:3e:32:bb:69:13:ac:47:b9:
+        99:63:e2:af:0f:9c:13:ac:b8:5c:a4:01:f6:51:80:6e:fc:4c:
+        c3:ab:0e:2d:23:a4:ba:45:7e:5e:86:25:1e:f2:4c:c5:f5:78:
+        dd:79:eb:aa:0a:50:1c:9b:b6:e5:73:53:56:1d:77:db:19:7a:
+        f8:85:11:1f:d3:53:c2:66:b7:0b:ec:69:c9:32:75:7d:85:fc:
+        2e:a8:7a:61:5d:ff:87:1d:66:36:3c:7e:76:dd:ad:71:bc:59:
+        7b:5b:6a:30:98:ca:f9:4c:fc:b8:23:45:fc:3a:28:df:05:04:
+        94:91:77:54
+
+```
 
 ## Service Discovery
 
