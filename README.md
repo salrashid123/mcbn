@@ -423,10 +423,10 @@ This repo contains a small demo about this feature that i extended for mTLS:
 4. client and server uses the _same_ local CA to issue an x509 certificate for the CSR
 5. server starts mTLS http server  where it accepts certificates issued by the local CA.
 
-  The server certificate is the one created in step 4
+   The server certificate is the one created in step 4
 6. client contacts the server using the local certificate from step 4
 
-  Client accepts the server certificate if it was issued by the local CA
+   Client accepts the server certificate if it was issued by the local CA
 7. During connection establishment, both the client and server checks if the remote peer's leaf RSA public key is the same
 
 
