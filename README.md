@@ -59,13 +59,9 @@ Though we are using a hypothetical feature of GCP `Confidential Space`, this tec
 
 ---
 
-The following describes how to generate a client/server using `TLS-PSK` and `DTLS` from partial keys where same predictable image hash is created for the client and another predictable hash for the server.
+## Combining Partial Keys
 
-It does **NOT** actually deploy these services to `Confidential Space` since theres no point (i.,e no inbound connectivity).  I'll update this sample with full end-to-end when it does.
-
-In both the TLS-PSK and DTLS examples below, we're going to "derive" the new key using a `sha256(alice+bob+carl)` (yes, i know...its suspect but its a demo).
-
-In our case,its just
+In all the examples below, we're going to "derive" the new key using a `sha256(alice+bob+carl)` which can certainly be more secure.
 
 ```javascript
 const alice = '2c6f63f8c0f53a565db041b91c0a95add8913fc102670589db3982228dbfed90';
@@ -86,13 +82,13 @@ key = '6d1bbd1e6235c9d9ec8cdbdf9b32d4d08304a7f305f7c6c67775130d914f4dc4';
 // console.log(key);  // gives 2b6c5604e7b5a3a9832ec2590fd058d610807cee2f3e87bb08dafbb57475d976
 ```
 
-Using hmac or sha256 in these formats requires the known ordering of keys (i.e  alice is key1, bob is key2, carols is key3)...and probably the assumption participants are not sending in degenerate keys like `000000...`
+Using `HMAC` or sha256 in these formats requires the known ordering of keys (though you could just `sha256(alice xor bob xor carl) == sha256(bob xor alice xor carl)` etc....and probably the assumption participants are not sending in degenerate keys like `000000...`.
 
 Other realistic possibilities to derive can be some sort of KDF function or using `Threshold Cryptography` with  the final recovered [private key](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13#file-main-go-L158).  (I haven't though much about the best way of how to derive a new key)
 
-For alternatives see comments on [Proper way to combine multiple secrets into one HMAC key](https://security.stackexchange.com/questions/183344/proper-way-to-combine-multiple-secrets-into-one-hmac-key)
+For alternatives see comments on [Proper way to combine multiple secrets into one HMAC key](https://security.stackexchange.com/questions/183344/proper-way-to-combine-multiple-secrets-into-one-hmac-key), [HKDF](https://security.stackexchange.com/questions/263842/key-derivation-for-hmac-concatenate-vs-multiple-hmac-passes) and [Combining Keys](https://crypto.stackexchange.com/questions/18572/combining-two-keys)
 
-Anyway, we'll just go with the scheme above.
+Anyway, we'll just go with the simple scheme above.
 
 ---
 
