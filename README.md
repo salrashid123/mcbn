@@ -10,47 +10,49 @@ Suppose there are
 * two application components:  `client` and `server`
 * the `client` can only connect to the `server` if all three participants agree to do so (or with a threshold of participants)
 * `Frank` operates a compute infrastructure where the `client` and `server` run.
-  * (or in different infrastructures (eg, `Frank` runs `client`; `Dave` runs `server` ))
 * each participant needs to provide their share of an encryption key which when combined will allow `client->server` connectivity
 * `Frank` cannot have  the ability to see any other participants partial keys or final derived key (neither can the participants see the others)
 * network traffic must be TLS encrypted (of course)
 
->>> **note**  all this is really experimental and just stuff i thought of; use caution and *never* in production.
+>>> **note**  all this is really experimental and just stuff i thought of; use caution
 
-There _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
+While there _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
 
-In this procedure outlined below, no trusted third party is required.  Well...`GCP Confidential Space` as a product is trusted in the sense the attestation it provides is legit (i.,e the product is doing what it says its supposed to do) and in this sense, its not the traditional 3rd party in context here)
+In this procedure outlined below, no trusted third party is required. 
 
-Each participant will release their share of the secret to both the client and server only after ensuring the specific VM that is requesting the share is running in [Google Confidential Space](https://cloud.google.com/blog/products/identity-security/announcing-confidential-space) and the codebase it is running is going to just use the combined keyshares to establish a TLS connection to the server.  The server will use the same set of keys to accept client connections.
+Each participant will release their share of the secret to both the client and server only after ensuring the specific VM that is requesting the share is running in a  Trusted Execution Environment like [Google Confidential Space](https://cloud.google.com/blog/products/identity-security/announcing-confidential-space) and the codebase which is running is going to just use the combined keyshares to establish a TLS connection to the client and server.
 
 Basically, the network connection itself is predicated on having access to all the keys for each participant in an environment where the codebase is trusted and `Frank` cannot access any data running on the VM.
 
-All of this is achieved using a fairly uncommon mechanism built into `TLS` or the way private keys are generated
+All of this is achieved using fairly uncommon mechanisms built into `TLS` or seeding how private keys are generated:
 
-For TCP - `TLS-PSK`:
-* [Pre-Shared Key Ciphersuites for Transport Layer Security (TLS)](https://www.rfc-editor.org/rfc/rfc4279)
+- **TCP/UDP**: [Pre-shared Key TLS (PSK)](#pre-shared-key-tls-psk)
 
-For UDP - `DTLS with PSK`:
-* [Datagram Transport Layer Security Version 1.2](https://www.rfc-editor.org/rfc/rfc6347)
+    A common `PSK` will be constructed within `Confidential Space` VM  using all participants keys (or with modification using `t-of-n` [Threshold Cryptography](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13)).   The partial keys will be released to the VM only after _it proves_ to each participant it is running trusted code and the operator (`Frank`), cannot access the system.
 
-  Basically a common `PSK` will be constructed within `Confidential Space` VM  using all participants keys (or with modification using `t-of-n` [Threshold Cryptography](https://gist.github.com/salrashid123/a871efff662a047257879ce7bffb9f13)).   The partial keys will be released to the VM only after _it proves_ to each participant it is running trusted code and the operator (`Frank`), cannot access the system.
+    The combined keys will create the same PSK on both the client and server and and then facilitate network connectivity. 
 
-  The combined keys will create the same PSK on both the client and server and and then facilitate network connectivity. 
+    TCP - `TLS-PSK`:
+    * [Pre-Shared Key Ciphersuites for Transport Layer Security (TLS)](https://www.rfc-editor.org/rfc/rfc4279)
 
-Again for TCP - `Shared RSA key derivation using constructed seeds`:
+    UDP - `DTLS with PSK`:
+    * [Datagram Transport Layer Security Version 1.2](https://www.rfc-editor.org/rfc/rfc6347)
 
-*  The final way is to derive the same RSA private key on both ends by "seeding" the shared key into the RSA key generator.  
-   This allows each side to use that common RSA key to create a CSR and then have a local CA issue a TLS x509 certificate.
-   Each end trusts the remote TLS cert and issuer but critical bit that is used to grant access is the _comparing the remote peers TLS certificates public key against the local key_.   
-   Since each end uses the same RSA key, this comparison can ensure both ends recieved the same set of partial keys.
+
+- **RSA**: [Deterministic RSA Key](#deterministic-rsa-key)
+
+    The same RSA private key on both ends by "seeding" the shared key into the RSA key generator.  This allows each side to use that common RSA key to create a CSR and then have a local CA issue a TLS x509 certificate.
+    Each end trusts the remote TLS cert and issuer but critical bit that is used to grant access is the _comparing the remote peers TLS certificates public key against the local key_.   
+    Since each end uses the same RSA key, this comparison can ensure both ends recieved the same set of partial keys.
+
+    TCP - `Shared RSA key derivation using constructed seeds`:
+---
 
 For  more information on confidential space, see
 
 * [Constructing Trusted Execution Environment (TEE) with GCP Confidential Space](https://github.com/salrashid123/confidential_space)
 
-> at the moment (`2/1/23`), `Confidential Space` does *not* allow inbound network connectivity so this is a hypothetical, academic construct. 
-
-Though we are using a hypothetical feature of GCP `Confidential Space`, this technique can be used extended to connect multiple cloud providers.  For example, the thereshold of keys can be decoded in a client running in [AWS Nitro Enclave](https://docs.aws.amazon.com/kms/latest/developerguide/services-nitro-enclaves.html) or [Azure SGX](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-computing-enclaves) while the server runs on GCP.
+Though we are referencing GCP `Confidential Space`, this technique can be used extended to connect multiple cloud providers.  For example, the threshold of keys can be decoded in a client running in [AWS Nitro Enclave](https://docs.aws.amazon.com/kms/latest/developerguide/services-nitro-enclaves.html) or [Azure SGX](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-computing-enclaves) while the server runs on GCP.
 
 ![image/mcbn.png](images/mcbn.png)
 
@@ -567,15 +569,3 @@ Certificate:
 
 ```
 
-## Service Discovery
-
-As with any client/server system, the question of service discovery is important.  
-
-This tutorial does not specify how the client and server will connect together but will outline several options:
-
-* `xDS` using [Google Traffic Director](https://cloud.google.com/traffic-director/docs/proxyless-overview)
-   - [Proxyless gRPC with Google Traffic Director](https://github.com/salrashid123/grpc_xds_traffic_director) provides a generic example not specific to this tutorial
-* [Istio Service Mesh](https://istio.io/latest/about/service-mesh/)
-   - (have not verified but using `PSK` or `DTLS` should be possible)
-* [Hashicorp Consul](https://www.consul.io/)
-   - You can configure consul using its [jwt auth](https://developer.hashicorp.com/consul/docs/security/acl/auth-methods/jwt) mechanism similar to Hashicorp Vault as shown [here](https://github.com/salrashid123/confidential_space#using-hashicorp-vault). and [Hashicorp Consul JWT Auth](https://github.com/salrashid123/consul_jwt_auth)
