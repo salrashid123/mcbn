@@ -1,3 +1,3 @@
-module github.com/salrashid123/mcbn/util
+module github.com/salrashid123/mcbn/seed/util
 
 go 1.19

@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/salrashid123/mcbn/util"
+	"github.com/salrashid123/mcbn/seed/util"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/net/http2"
