@@ -14,7 +14,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"util"
+
+	"github.com/salrashid123/mcbn/util"
 )
 
 var (
