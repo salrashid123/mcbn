@@ -1,4 +1,4 @@
-package util
+package rand
 
 // from https://gist.github.com/jpillora/5a0471b246d541b984ab
 

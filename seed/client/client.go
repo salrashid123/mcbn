@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/salrashid123/mcbn/seed/rand"
 	"github.com/salrashid123/mcbn/seed/util"
 )
 
@@ -64,7 +65,7 @@ func main() {
 
 	fmt.Printf("derived combined key %s\n", combinedKey)
 
-	privkey, err := rsa.GenerateKey(util.NewDetermRand([]byte(combinedKey)), bitSize)
+	privkey, err := rsa.GenerateKey(rand.NewDetermRand([]byte(combinedKey)), bitSize)
 	if err != nil {
 		fmt.Println("error generating key:", e.Error())
 		os.Exit(1)

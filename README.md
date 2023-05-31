@@ -433,6 +433,24 @@ You'll notice the code contains a local CA keypair that is built into the sample
 the 'thing' that allows connection isn't the CA or the certificate it signed (that bit is just for ease of use for mTLS)...the critical bit occurs when each end compares the RSA peer certificates are the same or not.
 
 
+```golang
+import (
+    	"github.com/salrashid123/mcbn/seed/rand"
+)
+
+	privkey, err := rsa.GenerateKey(rand.NewDetermRand([]byte(combinedKey)), bitSize)
+
+	pub := privkey.Public()
+
+	pubPEM := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PUBLIC KEY",
+			Bytes: x509.MarshalPKCS1PublicKey(pub.(*rsa.PublicKey)),
+		},
+	)
+	fmt.Printf("%s\n", pubPEM)
+```
+
 The following shows a simple client-server where each participants keys are set
 
 The first step shows the derived key, then the RSA key and the RSA key's hash value.  This should be the same on both ends.
