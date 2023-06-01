@@ -432,6 +432,7 @@ You'll notice the code contains a local CA keypair that is built into the sample
 
 the 'thing' that allows connection isn't the CA or the certificate it signed (that bit is just for ease of use for mTLS)...the critical bit occurs when each end compares the RSA peer certificates are the same or not.
 
+**WARNING, WARNING** the implementation of the not-so-random random generator is from [Deterministic crypto/rand Reader](https://gist.github.com/jpillora/5a0471b246d541b984ab).  certainly take this as _unverified_!  There are other certainly more formal ways to derive an RSA key from a seed as shown through `certtool` and links above.  I'm just using that gist for simplicity
 
 ```golang
 import (
