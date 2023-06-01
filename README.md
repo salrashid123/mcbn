@@ -424,19 +424,16 @@ This repo contains a small demo about this feature that i extended for mTLS:
 1. client and server recieve alice and bob's secret keys
 2. client and server derive the same RSA key using a hash of partial keys
 3. client and server uses the RSA key to create a CSR
-4. client and server uses the _same_ local CA to issue an x509 certificate for the CSR
-5. server starts mTLS http server  where it accepts certificates issued by the local CA.
-
-   The server certificate is the one created in step 4
-6. client contacts the server using the local certificate from step 4
-
-   Client accepts the server certificate if it was issued by the local CA
-7. During connection establishment, both the client and server checks if the remote peer's leaf RSA public key is the same
-
+4. client and server uses *any* CA to issue an x509 certificate for the CSR
+5. server starts mTLS http server  where it accepts certificates issued by the remote peers CA.
+6. client contacts the server using its local client certificate and accepts the server's cert issued by its peers CA
+7. During connection establishment, both the client and server checks if the remote peer's leaf **RSA public key** is the same the local copy.
 
 You'll notice the code contains a local CA keypair that is built into the sample...the CA only plays a bit part in this picture..
 
 the 'thing' that allows connection isn't the CA or the certificate it signed (that bit is just for ease of use for mTLS)...the critical bit occurs when each end compares the RSA peer certificates are the same or not.
+
+note, you could also conceive of a common public CA signer service which only accepts CSRs where the public rsa key is of the expected value (i.,e will only issue client or server certs to CSRs originating from a TEE)
 
 This repo uses [Deterministic Random Bit Generator (DRBG)](https://csrc.nist.gov/publications/detail/sp/800-90a/rev-1/final) implemented through [github.com/canonical/go-sp800.90a-drbg](https://pkg.go.dev/github.com/canonical/go-sp800.90a-drbg#NewHash) to generate the deterministic rsa key.
 
