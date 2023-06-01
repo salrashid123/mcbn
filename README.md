@@ -378,7 +378,6 @@ Its best demonstrated with the following using `certtool`:
 ```bash
 # start with a pair of secret keys
 export alice=b06394e28c33be5a8699759023972e9294d51b5007b3b0a51a41e9f58d406f8d
-
 export bob=2d362ce19a804d12b85644abf3a0e9bbfbb0e0ba3c5dd7cc4b8e335bc5154496
 
 # generate a new one...i'm using something suspect here like just hashing the combined key...there's certainly better ways like KDF or something
@@ -387,27 +386,34 @@ export S1=`echo -n "$alice$bob" | sha256sum | cut -d ' ' -f 1`
 echo $S1
 
 # you should see   cb488e9105faa7e26cf30dcc6042fea07fd71c38953973c356d8ecf80421880e
-
 # now use that key as the 'seed' to generate a keypari and extract the RSA public keys
-certtool --generate-privkey --outfile priv1.pem --key-type=rsa --sec-param=high --seed=$S1
+certtool --generate-privkey --outfile priv1.pem --key-type=rsa --sec-param=medium --provable --seed=$S1
 openssl rsa -in priv1.pem -pubout -out pub1.pem
+openssl rsa -pubin -in pub1.pem -RSAPublicKey_out
 
-# do it again
-certtool --generate-privkey  --outfile priv2.pem --key-type=rsa --sec-param=high --seed=$S1
-openssl rsa -in priv1.pem -pubout -out pub2.pem
+-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAsv9SPzFfsbJ/a2509qwgCJlEW6c66k7nVJssjpZnK/cwXA8L8wJ6
+TwtlNackAuxxUFNGeTzBvCOWGRdKkAB/zPTfbfk+P+VoduRFARH1/LbBaYHCkdYr
+3qHVpdYOoYL7QVaDFMZt3crtzqLqX6coV8CyCl2F+7XIgoZ7feghMsUpgRJ1i/Cb
+oVJPnjmKL4nlRtbuQjvHB4eEbOXb4qXPVu/tm8nBzsCMYrfvdzh4Luiqzi6kBcKs
+Fh8wgt77loNAY084sVNpqf1pTnJNozR9PP/U0aHsopmSdcbvwsudZBJ7E1wqDX/o
+mefpnh5OhJUFQOihjFxNKO5kdHgOYBsCnwIDAQAB
+-----END RSA PUBLIC KEY-----
 
-## compare both keys being the same...
-diff priv1.pem priv2.pem
+
+$ certtool  --verify-provable-privkey --load-privkey priv1.pem --seed=$S1
+Key was verified
 ```
 
 
 For more info, see:
 
 * [Generating a public/private key pair using an initial key](https://stackoverflow.com/questions/18264314/generating-a-public-private-key-pair-using-an-initial-key)
+* [Deterministic Random Bit Generator (DRBG)](https://csrc.nist.gov/publications/detail/sp/800-90a/rev-1/final)
+* [How to derive a private/public keypair from a random seed](https://crypto.stackexchange.com/questions/81487/how-to-derive-a-private-public-keypair-from-a-random-seed)
 * [Making OpenSSL generate deterministic key](https://stackoverflow.com/questions/22759465/making-openssl-generate-deterministic-key)
 * [Using Go deterministically generate RSA Private Key with custom io.Reader](https://stackoverflow.com/questions/74869997/using-go-deterministicly-generate-rsa-private-key-with-custom-io-reader)
 * [How can one securely generate an asymmetric key pair from a short passphrase?](https://crypto.stackexchange.com/questions/1662/how-can-one-securely-generate-an-asymmetric-key-pair-from-a-short-passphrase/1665#1665)
-* [Golang Deterministic crypto/rand Reader](https://gist.github.com/jpillora/5a0471b246d541b984ab)
 * [Golang: A tool to generate a deterministic RSA keypair from a passphrase.](https://github.com/joekir/deterministics)
 * [Python: deterministic-rsa-keygen 0.0.1](https://pypi.org/project/deterministic-rsa-keygen/)
 * [Stackexchange: Proper way to combine multiple secrets into one HMAC key](https://security.stackexchange.com/questions/183344/proper-way-to-combine-multiple-secrets-into-one-hmac-key)
@@ -432,25 +438,22 @@ You'll notice the code contains a local CA keypair that is built into the sample
 
 the 'thing' that allows connection isn't the CA or the certificate it signed (that bit is just for ease of use for mTLS)...the critical bit occurs when each end compares the RSA peer certificates are the same or not.
 
-**WARNING, WARNING** the implementation of the not-so-random random generator is from [Deterministic crypto/rand Reader](https://gist.github.com/jpillora/5a0471b246d541b984ab).  certainly take this as _unverified_!  There are other certainly more formal ways to derive an RSA key from a seed as shown through `certtool` and links above.  I'm just using that gist for simplicity
+This repo uses [Deterministic Random Bit Generator (DRBG)](https://csrc.nist.gov/publications/detail/sp/800-90a/rev-1/final) implemented through [github.com/canonical/go-sp800.90a-drbg](https://pkg.go.dev/github.com/canonical/go-sp800.90a-drbg#NewHash) to generate the deterministic rsa key.
+
+For example:
 
 ```golang
 import (
-    	"github.com/salrashid123/mcbn/seed/rand"
+    drbg "github.com/canonical/go-sp800.90a-drbg"
 )
 
-	privkey, err := rsa.GenerateKey(rand.NewDetermRand([]byte(combinedKey)), bitSize)
-
-	pub := privkey.Public()
-
-	pubPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
-			Bytes: x509.MarshalPKCS1PublicKey(pub.(*rsa.PublicKey)),
-		},
-	)
-	fmt.Printf("%s\n", pubPEM)
+    combinedKey := "y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4"
+	r, err := drbg.NewHash(crypto.SHA256, nil, bytes.NewReader([]byte(combinedKey)))
+	privkey, err := rsa.GenerateKey(r, bitSize)
 ```
+
+
+
 
 The following shows a simple client-server where each participants keys are set
 
@@ -466,20 +469,20 @@ $ go run server/server.go  \
 
 derived combined key y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
 -----BEGIN RSA PUBLIC KEY-----
-MIIBCgKCAQEA14gGro/kwHL7tqLhRvUbsxiV8+hQh/nTwbXvwOrO82ffMgBtfw5r
-8AB0hvsSVILcIQ8/6QvXplL4hfjhbg5L3HQ1wiSG8ha94Jayxe3bHpoQ7O0ENr/w
-DioEePFyCFXdtq/JdpA2sqTpd9cG9B8HHw/C4tR40/PoJhyS/rUZjKoNuV6zOIUo
-LUnIsNeKCFcqGJGhfsL8q4D0ntTvFdXWAIf/d1gYBj8NOFw+zj2KBYU1l/zRsBWU
-JrvpMesBMFL/+8zOQkdR1T5fBOEU9n5eiIGWx9lP0J7UBRliSYKSpThB/FrmyMz6
-vaXB5aj2LigGqvQzj2E2OM0eWzG76W9TFQIDAQAB
+MIIBCgKCAQEAwdE0acCUALJSqt9UmWKvk/sc175VgZuuUwg+iSCWmtjD6Qd/u1bU
+ldo0P8CLFhBEaxm8PZH5PnFydEDxmt7S3GFE1rzpY0/P99A+kmIIC1Zayff3YaWs
+Dcl3OgooVl/yLeAa2MAB2ndS+eAfJiZG8UTPpUf3nKeS7ly/8JS8NV6+QI5flPBr
+QWXgCstpkbDvDu6G26/h8SeEI0GXs6L/TjWMWfo7uucr/dzgLkVG0DwKidJf1H+b
+MPrr/sPL6tP69O7vCQslWqUI1LT1J/prds2obORrTqAqNdJL5jqcBYhNMmXr6aca
+DNhL2Ox6s1Llj1/k0CO8KAJcnlp4Ex57MQIDAQAB
 -----END RSA PUBLIC KEY-----
 
-derived common certificate hash 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+derived common certificate hash gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
 Creating CSR
 Creating Cert
-Issued x509 with serial number 144395073894613789882005151401037591406
+Issued x509 with serial number 254409249534854011802637476841032193225
 Starting Server..
-derived and remote certificate hash match 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+derived and remote certificate hash match gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
 
 
 ## client
@@ -489,21 +492,22 @@ $ go run client/client.go \
 
 derived combined key y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
 -----BEGIN RSA PUBLIC KEY-----
-MIIBCgKCAQEA14gGro/kwHL7tqLhRvUbsxiV8+hQh/nTwbXvwOrO82ffMgBtfw5r
-8AB0hvsSVILcIQ8/6QvXplL4hfjhbg5L3HQ1wiSG8ha94Jayxe3bHpoQ7O0ENr/w
-DioEePFyCFXdtq/JdpA2sqTpd9cG9B8HHw/C4tR40/PoJhyS/rUZjKoNuV6zOIUo
-LUnIsNeKCFcqGJGhfsL8q4D0ntTvFdXWAIf/d1gYBj8NOFw+zj2KBYU1l/zRsBWU
-JrvpMesBMFL/+8zOQkdR1T5fBOEU9n5eiIGWx9lP0J7UBRliSYKSpThB/FrmyMz6
-vaXB5aj2LigGqvQzj2E2OM0eWzG76W9TFQIDAQAB
+MIIBCgKCAQEAwdE0acCUALJSqt9UmWKvk/sc175VgZuuUwg+iSCWmtjD6Qd/u1bU
+ldo0P8CLFhBEaxm8PZH5PnFydEDxmt7S3GFE1rzpY0/P99A+kmIIC1Zayff3YaWs
+Dcl3OgooVl/yLeAa2MAB2ndS+eAfJiZG8UTPpUf3nKeS7ly/8JS8NV6+QI5flPBr
+QWXgCstpkbDvDu6G26/h8SeEI0GXs6L/TjWMWfo7uucr/dzgLkVG0DwKidJf1H+b
+MPrr/sPL6tP69O7vCQslWqUI1LT1J/prds2obORrTqAqNdJL5jqcBYhNMmXr6aca
+DNhL2Ox6s1Llj1/k0CO8KAJcnlp4Ex57MQIDAQAB
 -----END RSA PUBLIC KEY-----
 
-derived certificate hash 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+derived certificate hash gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
 Creating CSR
 Creating Cert
-Issued x509 with serial number 308506128143660537133484591602686761852
-local and remote certificate hash match 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+Issued x509 with serial number 28378151564278790075530879622077036809
+local and remote certificate hash match gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
 Connected to IP: 127.0.0.1
 200 OK
+ok
 ```
 
 
@@ -513,11 +517,12 @@ The server i used in the example above had:
 
 ```bash
 $ openssl x509 -in s.crt  -noout -text
+
 Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number:
-            6c:a1:7a:cb:3b:3a:54:87:cb:65:a9:e8:d3:98:f3:6e
+            2f:47:7f:70:a7:06:7a:4b:26:c6:c6:cb:b0:d4:1d:db
         Signature Algorithm: rsassaPss        
         Hash Algorithm: sha256
         Mask Algorithm: mgf1 with sha256
@@ -525,31 +530,31 @@ Certificate:
         Trailer Field: 0x01 (default)
         Issuer: C = US, O = Operator, OU = Enterprise, CN = Enterprise Root CA
         Validity
-            Not Before: May  4 14:48:31 2023 GMT
-            Not After : May  3 14:48:31 2024 GMT
+            Not Before: Jun  1 13:56:30 2023 GMT
+            Not After : May 31 13:56:30 2024 GMT
         Subject: C = US, ST = California, L = Mountain View, O = Acme Co, OU = Enterprise, CN = server.domain.com
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
                 Public-Key: (2048 bit)
                 Modulus:
-                    00:d7:88:06:ae:8f:e4:c0:72:fb:b6:a2:e1:46:f5:
-                    1b:b3:18:95:f3:e8:50:87:f9:d3:c1:b5:ef:c0:ea:
-                    ce:f3:67:df:32:00:6d:7f:0e:6b:f0:00:74:86:fb:
-                    12:54:82:dc:21:0f:3f:e9:0b:d7:a6:52:f8:85:f8:
-                    e1:6e:0e:4b:dc:74:35:c2:24:86:f2:16:bd:e0:96:
-                    b2:c5:ed:db:1e:9a:10:ec:ed:04:36:bf:f0:0e:2a:
-                    04:78:f1:72:08:55:dd:b6:af:c9:76:90:36:b2:a4:
-                    e9:77:d7:06:f4:1f:07:1f:0f:c2:e2:d4:78:d3:f3:
-                    e8:26:1c:92:fe:b5:19:8c:aa:0d:b9:5e:b3:38:85:
-                    28:2d:49:c8:b0:d7:8a:08:57:2a:18:91:a1:7e:c2:
-                    fc:ab:80:f4:9e:d4:ef:15:d5:d6:00:87:ff:77:58:
-                    18:06:3f:0d:38:5c:3e:ce:3d:8a:05:85:35:97:fc:
-                    d1:b0:15:94:26:bb:e9:31:eb:01:30:52:ff:fb:cc:
-                    ce:42:47:51:d5:3e:5f:04:e1:14:f6:7e:5e:88:81:
-                    96:c7:d9:4f:d0:9e:d4:05:19:62:49:82:92:a5:38:
-                    41:fc:5a:e6:c8:cc:fa:bd:a5:c1:e5:a8:f6:2e:28:
-                    06:aa:f4:33:8f:61:36:38:cd:1e:5b:31:bb:e9:6f:
-                    53:15
+                    00:c1:d1:34:69:c0:94:00:b2:52:aa:df:54:99:62:
+                    af:93:fb:1c:d7:be:55:81:9b:ae:53:08:3e:89:20:
+                    96:9a:d8:c3:e9:07:7f:bb:56:d4:95:da:34:3f:c0:
+                    8b:16:10:44:6b:19:bc:3d:91:f9:3e:71:72:74:40:
+                    f1:9a:de:d2:dc:61:44:d6:bc:e9:63:4f:cf:f7:d0:
+                    3e:92:62:08:0b:56:5a:c9:f7:f7:61:a5:ac:0d:c9:
+                    77:3a:0a:28:56:5f:f2:2d:e0:1a:d8:c0:01:da:77:
+                    52:f9:e0:1f:26:26:46:f1:44:cf:a5:47:f7:9c:a7:
+                    92:ee:5c:bf:f0:94:bc:35:5e:be:40:8e:5f:94:f0:
+                    6b:41:65:e0:0a:cb:69:91:b0:ef:0e:ee:86:db:af:
+                    e1:f1:27:84:23:41:97:b3:a2:ff:4e:35:8c:59:fa:
+                    3b:ba:e7:2b:fd:dc:e0:2e:45:46:d0:3c:0a:89:d2:
+                    5f:d4:7f:9b:30:fa:eb:fe:c3:cb:ea:d3:fa:f4:ee:
+                    ef:09:0b:25:5a:a5:08:d4:b4:f5:27:fa:6b:76:cd:
+                    a8:6c:e4:6b:4e:a0:2a:35:d2:4b:e6:3a:9c:05:88:
+                    4d:32:65:eb:e9:a7:1a:0c:d8:4b:d8:ec:7a:b3:52:
+                    e5:8f:5f:e4:d0:23:bc:28:02:5c:9e:5a:78:13:1e:
+                    7b:31
                 Exponent: 65537 (0x10001)
         X509v3 extensions:
             X509v3 Key Usage: critical
@@ -559,7 +564,7 @@ Certificate:
             X509v3 Basic Constraints: critical
                 CA:FALSE
             X509v3 Subject Key Identifier: 
-                48:98:22:67:C4:45:D7:BC:16:B9:65:28:1B:1B:21:A1:BD:6F:B0:83
+                68:33:6F:B6:97:F5:7E:68:44:AA:DE:60:3B:A5:64:56:5D:86:67:E9
             X509v3 Authority Key Identifier: 
                 58:88:29:FD:AA:3A:F0:9F:51:CA:FD:F1:6B:FC:D7:F0:8E:67:CF:80
             X509v3 Subject Alternative Name: 
@@ -570,21 +575,20 @@ Certificate:
         Mask Algorithm: mgf1 with sha256
          Salt Length: 0x20
         Trailer Field: 0x01 (default)
-        a5:cf:30:d2:9d:0d:c5:c0:f0:47:c3:ab:03:aa:b4:8e:4d:94:
-        6f:88:74:a5:24:d1:fa:ce:f6:35:a0:fc:e9:1d:3f:7f:80:c9:
-        a5:40:e7:99:9c:45:ce:9b:80:00:b3:55:7a:d5:b7:f1:6e:25:
-        aa:7b:90:d1:cc:55:2f:f7:1e:cf:7a:ac:90:a4:90:78:fc:26:
-        55:60:63:04:ac:4a:0c:67:ef:f6:77:87:aa:6d:5e:6c:58:68:
-        a0:83:04:7d:4b:a0:23:f7:bf:ec:28:27:14:e2:a9:8a:d6:be:
-        a6:f1:4b:d0:a8:c3:91:b7:40:c2:e9:b8:dd:83:e2:08:0a:eb:
-        ee:5e:be:3b:5f:af:33:44:a4:1e:3e:32:bb:69:13:ac:47:b9:
-        99:63:e2:af:0f:9c:13:ac:b8:5c:a4:01:f6:51:80:6e:fc:4c:
-        c3:ab:0e:2d:23:a4:ba:45:7e:5e:86:25:1e:f2:4c:c5:f5:78:
-        dd:79:eb:aa:0a:50:1c:9b:b6:e5:73:53:56:1d:77:db:19:7a:
-        f8:85:11:1f:d3:53:c2:66:b7:0b:ec:69:c9:32:75:7d:85:fc:
-        2e:a8:7a:61:5d:ff:87:1d:66:36:3c:7e:76:dd:ad:71:bc:59:
-        7b:5b:6a:30:98:ca:f9:4c:fc:b8:23:45:fc:3a:28:df:05:04:
-        94:91:77:54
-
+        3b:9d:3d:27:da:e5:a2:d3:78:ef:2d:59:2a:dc:a6:c4:89:20:
+        88:5a:ca:f3:8f:3d:13:62:3b:7a:0f:8d:fd:04:c3:56:21:a9:
+        21:c5:8f:18:35:70:a9:e5:27:a7:9e:c9:eb:9c:e0:5e:de:2b:
+        ed:46:9c:0b:10:87:af:d8:f3:c6:bc:7e:27:db:21:9f:14:38:
+        65:a1:bc:8f:c6:28:52:0d:08:c2:c7:6a:b7:c5:d7:2b:e7:79:
+        b2:86:66:ef:ac:ce:06:6d:d9:47:d2:c6:7f:9c:a1:7c:80:40:
+        e9:4f:4a:61:84:b1:2a:ff:e9:13:56:7e:0a:0d:20:f0:96:2a:
+        be:0b:7a:8d:62:2f:f4:9e:a2:a5:63:bf:34:55:83:31:5c:23:
+        01:b6:d3:9e:36:02:ee:62:ae:b1:8e:2d:8e:c4:26:77:83:c3:
+        42:81:08:f6:19:a8:ce:f0:7e:45:bc:7f:be:62:4f:88:53:8c:
+        3a:1a:3a:96:5f:5a:1b:48:bf:20:59:47:7f:46:d9:99:1e:d4:
+        b4:d4:26:67:06:07:c1:24:36:0c:1b:7f:03:c4:dc:8a:b9:60:
+        59:a3:00:4c:27:32:c8:c5:c3:15:f9:6d:59:1c:79:56:a7:44:
+        50:20:e3:19:2c:3d:64:a2:a9:a3:90:28:dc:56:60:e4:6a:61:
+        66:7a:3a:bc
 ```
 

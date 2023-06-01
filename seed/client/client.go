@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
@@ -15,12 +17,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/salrashid123/mcbn/seed/rand"
+	drbg "github.com/canonical/go-sp800.90a-drbg"
 	"github.com/salrashid123/mcbn/seed/util"
 )
 
 var (
-	publicKeyHash = "" // 8csxK9BpuvU24JNkWkET_HdvyNO60ak4ygldsH4Hzew
+	publicKeyHash = "" // y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
 	alice         = flag.String("alice", "b06394e28c33be5a8699759023972e9294d51b5007b3b0a51a41e9f58d406f8d", "Alice's key")
 	bob           = flag.String("bob", "2d362ce19a804d12b85644abf3a0e9bbfbb0e0ba3c5dd7cc4b8e335bc5154496", "bob's key")
 )
@@ -65,7 +67,8 @@ func main() {
 
 	fmt.Printf("derived combined key %s\n", combinedKey)
 
-	privkey, err := rsa.GenerateKey(rand.NewDetermRand([]byte(combinedKey)), bitSize)
+	r, err := drbg.NewHash(crypto.SHA256, nil, bytes.NewReader([]byte(combinedKey)))
+	privkey, err := rsa.GenerateKey(r, bitSize)
 	if err != nil {
 		fmt.Println("error generating key:", e.Error())
 		os.Exit(1)
