@@ -408,8 +408,9 @@ Key was verified
 
 For more info, see:
 
-* [Generating a public/private key pair using an initial key](https://stackoverflow.com/questions/18264314/generating-a-public-private-key-pair-using-an-initial-key)
 * [Deterministic Random Bit Generator (DRBG)](https://csrc.nist.gov/publications/detail/sp/800-90a/rev-1/final)
+* [Generating a public/private key pair using an initial key](https://stackoverflow.com/questions/18264314/generating-a-public-private-key-pair-using-an-initial-key)
+* [How many random bits are required to create one RSA key](https://crypto.stackexchange.com/questions/53124/how-many-random-bits-are-required-to-create-one-rsa-key)
 * [How to derive a private/public keypair from a random seed](https://crypto.stackexchange.com/questions/81487/how-to-derive-a-private-public-keypair-from-a-random-seed)
 * [Making OpenSSL generate deterministic key](https://stackoverflow.com/questions/22759465/making-openssl-generate-deterministic-key)
 * [Using Go deterministically generate RSA Private Key with custom io.Reader](https://stackoverflow.com/questions/74869997/using-go-deterministicly-generate-rsa-private-key-with-custom-io-reader)
@@ -445,8 +446,8 @@ import (
 )
 
     combinedKey := "y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4"
-	r, err := drbg.NewHash(crypto.SHA256, nil, bytes.NewReader([]byte(combinedKey)))
-	privkey, err := rsa.GenerateKey(r, bitSize)
+    r, err := drbg.NewHashWithExternalEntropy(crypto.SHA256, []byte(combinedKey), nil, nil, nil)
+    privkey, err := rsa.GenerateKey(r, bitSize)
 ```
 
 
@@ -466,20 +467,20 @@ $ go run server/server.go  \
 
 derived combined key y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
 -----BEGIN RSA PUBLIC KEY-----
-MIIBCgKCAQEAwdE0acCUALJSqt9UmWKvk/sc175VgZuuUwg+iSCWmtjD6Qd/u1bU
-ldo0P8CLFhBEaxm8PZH5PnFydEDxmt7S3GFE1rzpY0/P99A+kmIIC1Zayff3YaWs
-Dcl3OgooVl/yLeAa2MAB2ndS+eAfJiZG8UTPpUf3nKeS7ly/8JS8NV6+QI5flPBr
-QWXgCstpkbDvDu6G26/h8SeEI0GXs6L/TjWMWfo7uucr/dzgLkVG0DwKidJf1H+b
-MPrr/sPL6tP69O7vCQslWqUI1LT1J/prds2obORrTqAqNdJL5jqcBYhNMmXr6aca
-DNhL2Ox6s1Llj1/k0CO8KAJcnlp4Ex57MQIDAQAB
+MIIBCgKCAQEAynV1FFgMBUCoYlttNejPqb1zPAY1cQjkdOsghr7az+NHYxFmrCsc
+0mkuXhRqf0QqeVJUNjbFdEVb9+lL3xuT59XucIZ5tpBlmIlcmRnX/7UeJToE9ZGX
+ZVl2U3nEroUPcsAA5PH2vs/bPN19U0ekMq1mqCtb0P0/Jhtbk01HfmKmUovTh0oo
+rRolK37dgGgqUo/FVs0Mw4kKYNd0Z3SqKVMigj7EmwN9Ng5GO01VBjsBrA1w146Z
+VWca3/yGfOHsdY6oRgy5q/qxUfK2FKddCNLojR2xOllj4Y3K7Hli9cjBoEQvHy/K
+bpFcvTcF8Qr3TVTkOJYbmW2rauvUSGqg3wIDAQAB
 -----END RSA PUBLIC KEY-----
 
-derived common certificate hash gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
+derived common certificate hash w55b4-JhIH7vLIoKJtilo8zS_QQkiXpLkkdILxqfLCA
 Creating CSR
 Creating Cert
-Issued x509 with serial number 254409249534854011802637476841032193225
+Issued x509 with serial number 304644566552857710712497793020376072793
 Starting Server..
-derived and remote certificate hash match gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
+derived and remote certificate hash match w55b4-JhIH7vLIoKJtilo8zS_QQkiXpLkkdILxqfLCA
 
 
 ## client
@@ -489,19 +490,19 @@ $ go run client/client.go \
 
 derived combined key y0iOkQX6p-Js8w3MYEL-oH_XHDiVOXPDVtjs-AQhiA4
 -----BEGIN RSA PUBLIC KEY-----
-MIIBCgKCAQEAwdE0acCUALJSqt9UmWKvk/sc175VgZuuUwg+iSCWmtjD6Qd/u1bU
-ldo0P8CLFhBEaxm8PZH5PnFydEDxmt7S3GFE1rzpY0/P99A+kmIIC1Zayff3YaWs
-Dcl3OgooVl/yLeAa2MAB2ndS+eAfJiZG8UTPpUf3nKeS7ly/8JS8NV6+QI5flPBr
-QWXgCstpkbDvDu6G26/h8SeEI0GXs6L/TjWMWfo7uucr/dzgLkVG0DwKidJf1H+b
-MPrr/sPL6tP69O7vCQslWqUI1LT1J/prds2obORrTqAqNdJL5jqcBYhNMmXr6aca
-DNhL2Ox6s1Llj1/k0CO8KAJcnlp4Ex57MQIDAQAB
+MIIBCgKCAQEAynV1FFgMBUCoYlttNejPqb1zPAY1cQjkdOsghr7az+NHYxFmrCsc
+0mkuXhRqf0QqeVJUNjbFdEVb9+lL3xuT59XucIZ5tpBlmIlcmRnX/7UeJToE9ZGX
+ZVl2U3nEroUPcsAA5PH2vs/bPN19U0ekMq1mqCtb0P0/Jhtbk01HfmKmUovTh0oo
+rRolK37dgGgqUo/FVs0Mw4kKYNd0Z3SqKVMigj7EmwN9Ng5GO01VBjsBrA1w146Z
+VWca3/yGfOHsdY6oRgy5q/qxUfK2FKddCNLojR2xOllj4Y3K7Hli9cjBoEQvHy/K
+bpFcvTcF8Qr3TVTkOJYbmW2rauvUSGqg3wIDAQAB
 -----END RSA PUBLIC KEY-----
 
-derived certificate hash gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
+derived certificate hash w55b4-JhIH7vLIoKJtilo8zS_QQkiXpLkkdILxqfLCA
 Creating CSR
 Creating Cert
-Issued x509 with serial number 28378151564278790075530879622077036809
-local and remote certificate hash match gZsMz8rjAua3fQOBoNinyDwvRUXM72hU6cYUnHqGyow
+Issued x509 with serial number 241981356749299476354734320392982310510
+local and remote certificate hash match w55b4-JhIH7vLIoKJtilo8zS_QQkiXpLkkdILxqfLCA
 Connected to IP: 127.0.0.1
 200 OK
 ok
@@ -519,7 +520,7 @@ Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number:
-            2f:47:7f:70:a7:06:7a:4b:26:c6:c6:cb:b0:d4:1d:db
+            cf:3a:7c:6a:63:3d:61:f9:7d:ae:da:20:f2:c7:56:c4
         Signature Algorithm: rsassaPss        
         Hash Algorithm: sha256
         Mask Algorithm: mgf1 with sha256
@@ -527,31 +528,31 @@ Certificate:
         Trailer Field: 0x01 (default)
         Issuer: C = US, O = Operator, OU = Enterprise, CN = Enterprise Root CA
         Validity
-            Not Before: Jun  1 13:56:30 2023 GMT
-            Not After : May 31 13:56:30 2024 GMT
+            Not Before: Jun  3 13:28:40 2023 GMT
+            Not After : Jun  2 13:28:40 2024 GMT
         Subject: C = US, ST = California, L = Mountain View, O = Acme Co, OU = Enterprise, CN = server.domain.com
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
                 Public-Key: (2048 bit)
                 Modulus:
-                    00:c1:d1:34:69:c0:94:00:b2:52:aa:df:54:99:62:
-                    af:93:fb:1c:d7:be:55:81:9b:ae:53:08:3e:89:20:
-                    96:9a:d8:c3:e9:07:7f:bb:56:d4:95:da:34:3f:c0:
-                    8b:16:10:44:6b:19:bc:3d:91:f9:3e:71:72:74:40:
-                    f1:9a:de:d2:dc:61:44:d6:bc:e9:63:4f:cf:f7:d0:
-                    3e:92:62:08:0b:56:5a:c9:f7:f7:61:a5:ac:0d:c9:
-                    77:3a:0a:28:56:5f:f2:2d:e0:1a:d8:c0:01:da:77:
-                    52:f9:e0:1f:26:26:46:f1:44:cf:a5:47:f7:9c:a7:
-                    92:ee:5c:bf:f0:94:bc:35:5e:be:40:8e:5f:94:f0:
-                    6b:41:65:e0:0a:cb:69:91:b0:ef:0e:ee:86:db:af:
-                    e1:f1:27:84:23:41:97:b3:a2:ff:4e:35:8c:59:fa:
-                    3b:ba:e7:2b:fd:dc:e0:2e:45:46:d0:3c:0a:89:d2:
-                    5f:d4:7f:9b:30:fa:eb:fe:c3:cb:ea:d3:fa:f4:ee:
-                    ef:09:0b:25:5a:a5:08:d4:b4:f5:27:fa:6b:76:cd:
-                    a8:6c:e4:6b:4e:a0:2a:35:d2:4b:e6:3a:9c:05:88:
-                    4d:32:65:eb:e9:a7:1a:0c:d8:4b:d8:ec:7a:b3:52:
-                    e5:8f:5f:e4:d0:23:bc:28:02:5c:9e:5a:78:13:1e:
-                    7b:31
+                    00:ca:75:75:14:58:0c:05:40:a8:62:5b:6d:35:e8:
+                    cf:a9:bd:73:3c:06:35:71:08:e4:74:eb:20:86:be:
+                    da:cf:e3:47:63:11:66:ac:2b:1c:d2:69:2e:5e:14:
+                    6a:7f:44:2a:79:52:54:36:36:c5:74:45:5b:f7:e9:
+                    4b:df:1b:93:e7:d5:ee:70:86:79:b6:90:65:98:89:
+                    5c:99:19:d7:ff:b5:1e:25:3a:04:f5:91:97:65:59:
+                    76:53:79:c4:ae:85:0f:72:c0:00:e4:f1:f6:be:cf:
+                    db:3c:dd:7d:53:47:a4:32:ad:66:a8:2b:5b:d0:fd:
+                    3f:26:1b:5b:93:4d:47:7e:62:a6:52:8b:d3:87:4a:
+                    28:ad:1a:25:2b:7e:dd:80:68:2a:52:8f:c5:56:cd:
+                    0c:c3:89:0a:60:d7:74:67:74:aa:29:53:22:82:3e:
+                    c4:9b:03:7d:36:0e:46:3b:4d:55:06:3b:01:ac:0d:
+                    70:d7:8e:99:55:67:1a:df:fc:86:7c:e1:ec:75:8e:
+                    a8:46:0c:b9:ab:fa:b1:51:f2:b6:14:a7:5d:08:d2:
+                    e8:8d:1d:b1:3a:59:63:e1:8d:ca:ec:79:62:f5:c8:
+                    c1:a0:44:2f:1f:2f:ca:6e:91:5c:bd:37:05:f1:0a:
+                    f7:4d:54:e4:38:96:1b:99:6d:ab:6a:eb:d4:48:6a:
+                    a0:df
                 Exponent: 65537 (0x10001)
         X509v3 extensions:
             X509v3 Key Usage: critical
@@ -561,7 +562,7 @@ Certificate:
             X509v3 Basic Constraints: critical
                 CA:FALSE
             X509v3 Subject Key Identifier: 
-                68:33:6F:B6:97:F5:7E:68:44:AA:DE:60:3B:A5:64:56:5D:86:67:E9
+                13:63:7C:82:5F:03:9B:80:1E:8E:BB:10:00:55:14:D5:6F:C8:6F:94
             X509v3 Authority Key Identifier: 
                 58:88:29:FD:AA:3A:F0:9F:51:CA:FD:F1:6B:FC:D7:F0:8E:67:CF:80
             X509v3 Subject Alternative Name: 
@@ -572,20 +573,20 @@ Certificate:
         Mask Algorithm: mgf1 with sha256
          Salt Length: 0x20
         Trailer Field: 0x01 (default)
-        3b:9d:3d:27:da:e5:a2:d3:78:ef:2d:59:2a:dc:a6:c4:89:20:
-        88:5a:ca:f3:8f:3d:13:62:3b:7a:0f:8d:fd:04:c3:56:21:a9:
-        21:c5:8f:18:35:70:a9:e5:27:a7:9e:c9:eb:9c:e0:5e:de:2b:
-        ed:46:9c:0b:10:87:af:d8:f3:c6:bc:7e:27:db:21:9f:14:38:
-        65:a1:bc:8f:c6:28:52:0d:08:c2:c7:6a:b7:c5:d7:2b:e7:79:
-        b2:86:66:ef:ac:ce:06:6d:d9:47:d2:c6:7f:9c:a1:7c:80:40:
-        e9:4f:4a:61:84:b1:2a:ff:e9:13:56:7e:0a:0d:20:f0:96:2a:
-        be:0b:7a:8d:62:2f:f4:9e:a2:a5:63:bf:34:55:83:31:5c:23:
-        01:b6:d3:9e:36:02:ee:62:ae:b1:8e:2d:8e:c4:26:77:83:c3:
-        42:81:08:f6:19:a8:ce:f0:7e:45:bc:7f:be:62:4f:88:53:8c:
-        3a:1a:3a:96:5f:5a:1b:48:bf:20:59:47:7f:46:d9:99:1e:d4:
-        b4:d4:26:67:06:07:c1:24:36:0c:1b:7f:03:c4:dc:8a:b9:60:
-        59:a3:00:4c:27:32:c8:c5:c3:15:f9:6d:59:1c:79:56:a7:44:
-        50:20:e3:19:2c:3d:64:a2:a9:a3:90:28:dc:56:60:e4:6a:61:
-        66:7a:3a:bc
+        2d:bc:fa:e0:8d:2d:fa:74:21:d2:b1:13:02:f1:fb:4f:fc:5c:
+        9a:fe:89:8c:46:04:6b:52:71:e8:ed:f9:eb:0a:77:39:8d:e4:
+        d7:6c:3f:fe:ff:fa:f0:82:7e:93:c2:c7:e5:0c:93:98:37:79:
+        cc:92:fa:b9:6e:0e:19:74:8f:ef:39:8e:3a:e9:e6:ed:12:3e:
+        a5:d6:6b:cd:a1:ae:24:ef:56:33:bd:e1:12:4d:2a:b2:77:15:
+        39:f1:c6:58:95:72:bd:b7:a4:e8:81:22:88:af:99:9a:66:bf:
+        78:bd:10:05:97:08:f1:aa:a3:a0:47:68:43:54:ce:70:6f:16:
+        43:09:48:e9:88:2d:6a:7c:d3:72:e5:ea:36:da:50:95:ae:4d:
+        8b:ce:a8:ad:ed:b4:02:8f:cc:ce:54:e0:6a:00:d0:9b:90:39:
+        b5:3d:df:5b:11:ad:69:5f:f1:d6:e1:b4:5d:fb:46:20:49:7b:
+        76:26:4f:47:4f:cb:55:06:1f:75:a0:40:a5:38:10:5c:74:ef:
+        73:6d:22:bc:58:f7:53:ed:f9:87:9e:97:cc:77:84:74:a9:2e:
+        08:7c:d0:4a:a1:2d:a4:bb:29:44:15:e3:36:bf:36:88:97:92:
+        0e:6f:32:a4:8b:48:ff:d4:30:58:b5:d7:67:1e:82:b3:53:55:
+        2f:53:e8:62
 ```
 

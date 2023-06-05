@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rsa"
@@ -72,13 +71,6 @@ func eventsMiddleware(h http.Handler) http.Handler {
 }
 
 func gethandler(w http.ResponseWriter, r *http.Request) {
-	//val := r.Context().Value(contextKey("event")).(event)
-	// note val.PeerCertificates[0] is the leaf
-	// for _, c := range val.PeerCertificates {
-	// 	h := sha256.New()
-	// 	h.Write(c.Raw)
-	// 	fmt.Printf("Client Certificate hash %s\n", base64.RawURLEncoding.EncodeToString(h.Sum(nil)))
-	// }
 	fmt.Fprint(w, "ok")
 }
 
@@ -120,7 +112,7 @@ func main() {
 
 	fmt.Printf("derived combined key %s\n", combinedKey)
 
-	r, err := drbg.NewHash(crypto.SHA256, nil, bytes.NewReader([]byte(combinedKey)))
+	r, err := drbg.NewHashWithExternalEntropy(crypto.SHA256, []byte(combinedKey), nil, nil, nil)
 	privkey, err := rsa.GenerateKey(r, bitSize)
 	if err != nil {
 		fmt.Println("Error generating key", e.Error())

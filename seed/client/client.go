@@ -67,7 +67,7 @@ func main() {
 
 	fmt.Printf("derived combined key %s\n", combinedKey)
 
-	r, err := drbg.NewHash(crypto.SHA256, nil, bytes.NewReader([]byte(combinedKey)))
+	r, err := drbg.NewHashWithExternalEntropy(crypto.SHA256, []byte(combinedKey), nil, nil, bytes.NewReader([]byte(combinedKey)))
 	privkey, err := rsa.GenerateKey(r, bitSize)
 	if err != nil {
 		fmt.Println("error generating key:", e.Error())
