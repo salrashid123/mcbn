@@ -450,8 +450,7 @@ import (
     privkey, err := rsa.GenerateKey(r, bitSize)
 ```
 
-
-
+(note you can also use [crypto.ed25519.NewKeyFromSeed()](https://pkg.go.dev/crypto/ed25519@go1.20.5#NewKeyFromSeed))
 
 The following shows a simple client-server where each participants keys are set
 
