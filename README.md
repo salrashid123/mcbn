@@ -589,3 +589,28 @@ Certificate:
         2f:53:e8:62
 ```
 
+sample for keytool,JKS
+
+```bash
+export alice=b06394e28c33be5a8699759023972e9294d51b5007b3b0a51a41e9f58d406f8d
+export bob=2d362ce19a804d12b85644abf3a0e9bbfbb0e0ba3c5dd7cc4b8e335bc5154496
+export S1=`echo -n "$alice$bob" | sha256sum | cut -d ' ' -f 1`
+echo $S1
+
+certtool --generate-privkey --outfile priv1.pem --key-type=rsa --sec-param=medium --provable --seed=$S1
+openssl rsa -in priv1.pem -pubout -out pub1.pem
+openssl rsa -pubin -in pub1.pem -RSAPublicKey_out
+certtool  --verify-provable-privkey --load-privkey priv1.pem --seed=$S1
+
+openssl req -x509 -key priv1.pem -out cert.pem -sha256 -days 3650 -nodes -subj "/C=US/ST=CA/L=SF/O=Google/OU=Cloud/CN=Spark"
+openssl x509 -in cert.pem -text
+
+openssl pkcs12 -export -out server.p12 -inkey priv1.pem -in cert.pem -password pass:examplestorepass
+
+keytool -importkeystore -destkeystore spark-keystore.jks -srcstoretype PKCS12 -srckeystore server.p12  -storepass examplestorepass -srcstorepass examplestorepass
+keytool -importcert -keystore spark-truststore.jks  -storepass examplestorepass -file cert.pem -noprompt
+
+keytool -list -v -keystore spark-keystore.jks   -storepass examplestorepass
+keytool -list -v -keystore spark-truststore.jks   -storepass examplestorepass
+```
+
