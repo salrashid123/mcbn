@@ -18,7 +18,7 @@ Suppose there are
 
 While there _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
 
-In this procedure outlined below, no trusted third party is required. 
+In this procedure outlined below, no trusted third party is required (well, you're trusting a provider of a TEE infrastructure (Google Cloud, Azure, AWS) that it is doing what its advertized to do as a TEE). 
 
 Each participant will release their share of the secret to both the client and server only after ensuring the specific VM that is requesting the share is running in a  Trusted Execution Environment like [Google Confidential Space](https://cloud.google.com/blog/products/identity-security/announcing-confidential-space) and the codebase which is running is going to just use the combined keyshares to establish a TLS connection to the client and server.
 
@@ -102,6 +102,7 @@ other language support is  still in flight or i didn't care to learn java again
 
 * `go`: [crypto/tls: add PSK support ](https://github.com/golang/go/issues/6379)
 * `java`: [TlsPSKKeyExchange](https://www.bouncycastle.org/docs/tlsdocs1.8on/org/bouncycastle/tls/TlsPSKKeyExchange.html)
+* `python`:  This repo also shows a very basic PSK client/server in python.  PSK support is only present as of python 3.13 ([#63284](https://github.com/python/cpython/issues/63284))
 
 Anyway, the following hardcodes the derived key and simply sets up a client/server to demo PSK.
 
@@ -270,6 +271,198 @@ wireshark psk_tls12.cap  -otls.keylog_file:`pwd`/keylog_tls12.log
 The traces above used `TLS13`, for `TLS12` traces:
 
 ![images/cipher_suites_tls12.png](images/cipher_suites_tls12.png)
+
+## stunnel
+
+Stunnel also offers support to for PSK:
+
+see [stunnel PSK](https://www.stunnel.org/auth.html)
+
+as a simple example of a client-server, 
+
+`client --> no TLS --> stunnel_client :7070 --> TLS-PSK --> stunnel_server :8081  --> no TLS --> python server: 8080`
+
+```bash
+# start any background server
+python3 -m http.server 8080
+
+# then in different windows, run the client and server stunnels
+stunnel server.conf
+
+stunnel client.conf 
+
+# finally run the client
+curl -v http://localhost:7070/
+```
+
+
+- `server`
+
+```log
+stunnel server.conf  
+
+2024.01.02 09:33:29 LOG5[ui]: stunnel 5.71 on x86_64-pc-linux-gnu platform
+2024.01.02 09:33:29 LOG5[ui]: Compiled with OpenSSL 3.0.10 1 Aug 2023
+2024.01.02 09:33:29 LOG5[ui]: Running  with OpenSSL 3.2.0-beta1 26 Oct 2023
+2024.01.02 09:33:29 LOG5[ui]: Update OpenSSL shared libraries or rebuild stunnel
+2024.01.02 09:33:29 LOG5[ui]: Threading:PTHREAD Sockets:POLL,IPv6 TLS:ENGINE,OCSP,PSK,SNI
+2024.01.02 09:33:29 LOG5[ui]: Reading configuration from file /home/srashid/Desktop/mcbn/stunnel/server.conf
+2024.01.02 09:33:29 LOG5[ui]: UTF-8 byte order mark not detected
+2024.01.02 09:33:29 LOG5[ui]: FIPS mode disabled
+2024.01.02 09:33:29 LOG4[ui]: Insecure file permissions on psk.txt
+2024.01.02 09:33:29 LOG5[ui]: OCSP: Server OCSP stapling is incompatible with PSK
+2024.01.02 09:33:29 LOG5[ui]: Configuration successful
+2024.01.02 09:33:29 LOG5[ui]: Binding service [PSK server] to :::8081: Address already in use (98)
+2024.01.02 09:33:29 LOG5[per-day]: Updating DH parameters
+2024.01.02 09:33:32 LOG7[0]: Service [PSK server] started
+2024.01.02 09:33:32 LOG7[0]: Setting local socket options (FD=3)
+2024.01.02 09:33:32 LOG7[0]: Option TCP_NODELAY set on local socket
+2024.01.02 09:33:32 LOG5[0]: Service [PSK server] accepted connection from 127.0.0.1:53004
+2024.01.02 09:33:32 LOG6[0]: Peer certificate not required
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): before SSL initialization
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): before SSL initialization
+2024.01.02 09:33:32 LOG5[0]: Key configured for PSK identity "client1"
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: SNI: no virtual services defined
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): SSLv3/TLS read client hello
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): SSLv3/TLS write server hello
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): SSLv3/TLS write change cipher spec
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): TLSv1.3 write encrypted extensions
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): SSLv3/TLS write finished
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): TLSv1.3 early data
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): TLSv1.3 early data
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): SSLv3/TLS read finished
+2024.01.02 09:33:32 LOG7[0]:      1 server accept(s) requested
+2024.01.02 09:33:32 LOG7[0]:      1 server accept(s) succeeded
+2024.01.02 09:33:32 LOG7[0]:      0 server renegotiation(s) requested
+2024.01.02 09:33:32 LOG7[0]:      1 session reuse(s)
+2024.01.02 09:33:32 LOG7[0]:      0 internal session cache item(s)
+2024.01.02 09:33:32 LOG7[0]:      0 internal session cache fill-up(s)
+2024.01.02 09:33:32 LOG7[0]:      0 internal session cache miss(es)
+2024.01.02 09:33:32 LOG7[0]:      0 external session cache hit(s)
+2024.01.02 09:33:32 LOG7[0]:      0 expired session(s) retrieved
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: Generate session ticket callback
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: New session callback
+2024.01.02 09:33:32 LOG6[0]: No peer certificate received
+2024.01.02 09:33:32 LOG6[0]: Session id: CC433E3A83193DE52639EC14373B1EC6038D96B4D19F1FE30F3379933E8F33D9
+2024.01.02 09:33:32 LOG7[0]: TLS state (accept): SSLv3/TLS write session ticket
+2024.01.02 09:33:32 LOG6[0]: TLS accepted: new session negotiated
+2024.01.02 09:33:32 LOG6[0]: TLSv1.3 ciphersuite: TLS_AES_128_GCM_SHA256 (128-bit encryption)
+2024.01.02 09:33:32 LOG6[0]: Peer temporary key: X25519, 253 bits
+2024.01.02 09:33:32 LOG7[0]: Compression: null, expansion: null
+2024.01.02 09:33:32 LOG6[0]: Session id: CC433E3A83193DE52639EC14373B1EC6038D96B4D19F1FE30F3379933E8F33D9
+2024.01.02 09:33:32 LOG5[0]: persistence: No cached address found
+2024.01.02 09:33:32 LOG6[0]: failover: priority, starting at entry #0
+2024.01.02 09:33:32 LOG6[0]: s_connect: connecting ::1:8080
+2024.01.02 09:33:32 LOG7[0]: s_connect: s_poll_wait ::1:8080: waiting 10 seconds
+2024.01.02 09:33:32 LOG7[0]: FD=6 events=0x2001 revents=0x0
+2024.01.02 09:33:32 LOG7[0]: FD=10 events=0x2005 revents=0x1
+2024.01.02 09:33:32 LOG3[0]: s_connect: connect ::1:8080: Connection refused (111)
+2024.01.02 09:33:32 LOG6[0]: s_connect: connecting 127.0.0.1:8080
+2024.01.02 09:33:32 LOG7[0]: s_connect: s_poll_wait 127.0.0.1:8080: waiting 10 seconds
+2024.01.02 09:33:32 LOG7[0]: FD=6 events=0x2001 revents=0x0
+2024.01.02 09:33:32 LOG7[0]: FD=10 events=0x2005 revents=0x201D
+2024.01.02 09:33:32 LOG5[0]: s_connect: connected 127.0.0.1:8080
+2024.01.02 09:33:32 LOG6[0]: persistence: 127.0.0.1:8080 cached
+2024.01.02 09:33:32 LOG5[0]: Service [PSK server] connected remote server from 127.0.0.1:38658
+2024.01.02 09:33:32 LOG7[0]: Setting remote socket options (FD=10)
+2024.01.02 09:33:32 LOG7[0]: Option TCP_NODELAY set on remote socket
+2024.01.02 09:33:32 LOG7[0]: Remote descriptor (FD=10) initialized
+2024.01.02 09:33:32 LOG6[0]: Read socket closed (readsocket)
+2024.01.02 09:33:32 LOG7[0]: Sending close_notify alert
+2024.01.02 09:33:32 LOG7[0]: TLS alert (write): warning: close notify
+2024.01.02 09:33:32 LOG6[0]: SSL_shutdown successfully sent close_notify alert
+2024.01.02 09:33:32 LOG7[0]: TLS alert (read): warning: close notify
+2024.01.02 09:33:32 LOG6[0]: TLS closed (SSL_read)
+2024.01.02 09:33:32 LOG7[0]: Sent socket write shutdown
+2024.01.02 09:33:32 LOG5[0]: Connection closed: 543 byte(s) sent to TLS, 77 byte(s) sent to socket
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: Remote descriptor (FD=10) closed
+2024.01.02 09:33:32 LOG7[0]: Local descriptor (FD=3) closed
+2024.01.02 09:33:32 LOG7[0]: Service [PSK server] finished (0 left)
+```
+
+- `client`
+
+```log
+stunnel client.conf 
+
+2024.01.02 09:33:23 LOG5[ui]: stunnel 5.71 on x86_64-pc-linux-gnu platform
+2024.01.02 09:33:23 LOG5[ui]: Compiled with OpenSSL 3.0.10 1 Aug 2023
+2024.01.02 09:33:23 LOG5[ui]: Running  with OpenSSL 3.2.0-beta1 26 Oct 2023
+2024.01.02 09:33:23 LOG5[ui]: Update OpenSSL shared libraries or rebuild stunnel
+2024.01.02 09:33:23 LOG5[ui]: Threading:PTHREAD Sockets:POLL,IPv6 TLS:ENGINE,OCSP,PSK,SNI
+2024.01.02 09:33:23 LOG5[ui]: Reading configuration from file /home/srashid/Desktop/mcbn/stunnel/client.conf
+2024.01.02 09:33:23 LOG5[ui]: UTF-8 byte order mark not detected
+2024.01.02 09:33:23 LOG5[ui]: FIPS mode disabled
+2024.01.02 09:33:23 LOG4[ui]: Insecure file permissions on psk.txt
+2024.01.02 09:33:23 LOG5[ui]: Configuration successful
+2024.01.02 09:33:32 LOG7[0]: Service [PSK client 1] started
+2024.01.02 09:33:32 LOG7[0]: Setting local socket options (FD=3)
+2024.01.02 09:33:32 LOG7[0]: Option TCP_NODELAY set on local socket
+2024.01.02 09:33:32 LOG5[0]: Service [PSK client 1] accepted connection from 127.0.0.1:44210
+2024.01.02 09:33:32 LOG6[0]: s_connect: connecting 127.0.0.1:8081
+2024.01.02 09:33:32 LOG7[0]: s_connect: s_poll_wait 127.0.0.1:8081: waiting 10 seconds
+2024.01.02 09:33:32 LOG7[0]: FD=6 events=0x2001 revents=0x0
+2024.01.02 09:33:32 LOG7[0]: FD=10 events=0x2005 revents=0x0
+2024.01.02 09:33:32 LOG5[0]: s_connect: connected 127.0.0.1:8081
+2024.01.02 09:33:32 LOG5[0]: Service [PSK client 1] connected remote server from 127.0.0.1:53004
+2024.01.02 09:33:32 LOG7[0]: Setting remote socket options (FD=10)
+2024.01.02 09:33:32 LOG7[0]: Option TCP_NODELAY set on remote socket
+2024.01.02 09:33:32 LOG7[0]: Remote descriptor (FD=10) initialized
+2024.01.02 09:33:32 LOG6[0]: SNI: sending servername: localhost
+2024.01.02 09:33:32 LOG6[0]: Peer certificate not required
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): before SSL initialization
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG6[0]: PSK client configured for identity "client1"
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS write client hello
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS write client hello
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS read server hello
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): TLSv1.3 read encrypted extensions
+2024.01.02 09:33:32 LOG7[0]: OCSP stapling: Client callback called
+2024.01.02 09:33:32 LOG6[0]: OCSP: Certificate chain verification disabled
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS read finished
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS write change cipher spec
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS write finished
+2024.01.02 09:33:32 LOG7[0]:      1 client connect(s) requested
+2024.01.02 09:33:32 LOG7[0]:      1 client connect(s) succeeded
+2024.01.02 09:33:32 LOG7[0]:      0 client renegotiation(s) requested
+2024.01.02 09:33:32 LOG7[0]:      1 session reuse(s)
+2024.01.02 09:33:32 LOG6[0]: TLS connected: previous session reused
+2024.01.02 09:33:32 LOG6[0]: TLSv1.3 ciphersuite: TLS_AES_128_GCM_SHA256 (128-bit encryption)
+2024.01.02 09:33:32 LOG6[0]: Peer temporary key: X25519, 253 bits
+2024.01.02 09:33:32 LOG7[0]: Compression: null, expansion: null
+2024.01.02 09:33:32 LOG6[0]: Session id: 
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSL negotiation finished successfully
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSL negotiation finished successfully
+2024.01.02 09:33:32 LOG7[0]: Initializing application specific data for session authenticated
+2024.01.02 09:33:32 LOG7[0]: Deallocating application specific data for session connect address
+2024.01.02 09:33:32 LOG7[0]: New session callback
+2024.01.02 09:33:32 LOG6[0]: No peer certificate received
+2024.01.02 09:33:32 LOG6[0]: Session id: 3516C349057726CF3DD75503386706AE95FE08AEBCC4E2DFDB5BA2D0AD0424DC
+2024.01.02 09:33:32 LOG7[0]: TLS state (connect): SSLv3/TLS read server session ticket
+2024.01.02 09:33:32 LOG7[0]: TLS alert (read): warning: close notify
+2024.01.02 09:33:32 LOG6[0]: TLS closed (SSL_read)
+2024.01.02 09:33:32 LOG7[0]: Sent socket write shutdown
+2024.01.02 09:33:32 LOG6[0]: Read socket closed (readsocket)
+2024.01.02 09:33:32 LOG7[0]: Sending close_notify alert
+2024.01.02 09:33:32 LOG7[0]: TLS alert (write): warning: close notify
+2024.01.02 09:33:32 LOG6[0]: SSL_shutdown successfully sent close_notify alert
+2024.01.02 09:33:32 LOG5[0]: Connection closed: 77 byte(s) sent to TLS, 543 byte(s) sent to socket
+2024.01.02 09:33:32 LOG7[0]: Remote descriptor (FD=10) closed
+2024.01.02 09:33:32 LOG7[0]: Local descriptor (FD=3) closed
+2024.01.02 09:33:32 LOG7[0]: Service [PSK client 1] finished (0 left)
+```
 
 ---
 
