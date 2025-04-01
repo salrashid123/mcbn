@@ -16,6 +16,9 @@ Suppose there are
 
 >>> **note**  all this is really experimental and just stuff i thought of; use caution
 
+This repo concept is defensively published as [Establishing a Secure Sharing Environment Using Partial
+Cryptographic K aphic Keys ](https://www.tdcommons.org/cgi/viewcontent.cgi?article=8992&context=dpubs_series)
+
 While there _maybe_ ways to achieve this programmatically using bearer tokens or `x509` certificates but they generally involve a trusted third party to broker secret.  
 
 In this procedure outlined below, no trusted third party is required (well, you're trusting a provider of a TEE infrastructure (Google Cloud, Azure, AWS) that it is doing what its advertized to do as a TEE). 
